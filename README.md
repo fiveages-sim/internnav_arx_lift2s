@@ -26,3 +26,11 @@ https://github.com/fiveages-sim/open-deploy-ws (branch `arx-lift2s`)
 ## Quick start
 
 See `docs/InternNav_ARX_Lift2S_Implementation_Guide.md`.
+
+## Cursor skill
+
+Project skill for agents working on this integration:
+
+`.cursor/skills/internnav-arx-lift2s/`
+
+Copy into `~/.cursor/skills/` if you want it available outside this repo.
