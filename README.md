@@ -21,11 +21,12 @@ https://github.com/fiveages-sim/open-deploy-ws (branch `arx-lift2s`)
 | `scripts/capture_realsense_frame.py` | Capture one RGB-D frame from ROS |
 | `scripts/lift2s_internnav_bridge.py` | Camera → DualVLN → optional `/cmd_vel` |
 | `docs/` | Implementation + architecture guides |
+| `docs/Basic_Dry_Run_and_Motion_Guide.md` | Sim-06 ↔ Lift2S dry-run + motion command script |
 | `patches/internnav_utils_init.py` | Lazy `AgentClient` import helper for robot |
 
 ## Quick start
 
-See `docs/Quick_Start.md`.
+See `docs/Quick_Start.md` or the full command script `docs/Basic_Dry_Run_and_Motion_Guide.md`.
 
 ## Cursor skill
 
