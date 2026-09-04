@@ -35,3 +35,7 @@ Project skill for agents working on this integration:
 `.cursor/skills/internnav-arx-lift2s/`
 
 Copy into `~/.cursor/skills/` if you want it available outside this repo.
+
+## Demo
+
+[Lift2S DualVLN demo (mp4)](docs/media/InternNav_ARX_LIFT2S.mp4)
