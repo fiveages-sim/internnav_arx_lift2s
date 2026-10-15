@@ -1,41 +1,41 @@
 # InternNav ↔ ARX Lift2S
 
-Integration scripts and docs to run InternNav DualVLN on ARX Lift2S.
+在 ARX Lift2S 上运行 InternNav DualVLN 的集成脚本与文档。
 
-- Robot: ROS 2 Jazzy + Zenoh + RealSense D405 + `open-deploy-ws` (`arx-lift2s`)
-- Inference: InternNav Agent Server on a GPU PC (e.g. Sim-06), HTTP `:8087`
+- 机器人端：ROS 2 Jazzy + Zenoh + RealSense D405 + `open-deploy-ws`（`arx-lift2s`）
+- 推理端：GPU 主机上的 InternNav Agent Server（例如 Sim-06），HTTP `:8087`
 
-This repository is **not** a full InternNav fork. Clone upstream InternNav for the model server:
+本仓库**不是**完整的 InternNav fork。模型服务请克隆上游 InternNav：
 
 https://github.com/InternRobotics/InternNav
 
-Robot workspace (chassis / control):
+机器人工作空间（底盘 / 控制）：
 
-https://github.com/fiveages-sim/open-deploy-ws (branch `arx-lift2s`)
+https://github.com/fiveages-sim/open-deploy-ws（分支 `arx-lift2s`）
 
-## Contents
+## 内容
 
-| Path | Description |
+| 路径 | 说明 |
 |------|-------------|
-| `scripts/smoke_test_fake_obs.py` | HTTP smoke test (fake or `.npz` obs) |
-| `scripts/capture_realsense_frame.py` | Capture one RGB-D frame from ROS |
-| `scripts/lift2s_internnav_bridge.py` | Camera → DualVLN → optional `/cmd_vel` |
-| `docs/` | Implementation + architecture guides |
-| `docs/Basic_Dry_Run_and_Motion_Guide.md` | Sim-06 ↔ Lift2S dry-run + motion command script |
-| `patches/internnav_utils_init.py` | Lazy `AgentClient` import helper for robot |
+| `scripts/smoke_test_fake_obs.py` | HTTP 冒烟测试（假观测或 `.npz` 观测） |
+| `scripts/capture_realsense_frame.py` | 从 ROS 捕获一帧 RGB-D |
+| `scripts/lift2s_internnav_bridge.py` | 相机 → DualVLN → 可选 `/cmd_vel` |
+| `docs/` | 实现与架构指南 |
+| `docs/Basic_Dry_Run_and_Motion_Guide.md` | Sim-06 ↔ Lift2S 干跑 + 运动指令脚本 |
+| `patches/internnav_utils_init.py` | 机器人端懒加载 `AgentClient` 的辅助补丁 |
 
-## Quick start
+## 快速开始
 
-See `docs/Quick_Start.md` or the full command script `docs/Basic_Dry_Run_and_Motion_Guide.md`.
+参见 `docs/Quick_Start.md`，或完整指令脚本 `docs/Basic_Dry_Run_and_Motion_Guide.md`。
 
 ## Cursor skill
 
-Project skill for agents working on this integration:
+供处理本集成的 agent 使用的项目 skill：
 
 `.cursor/skills/internnav-arx-lift2s/`
 
-Copy into `~/.cursor/skills/` if you want it available outside this repo.
+如需在本仓库外使用，可复制到 `~/.cursor/skills/`。
 
-## Demo
+## 演示
 
 [Lift2S DualVLN demo (mp4)](docs/media/InternNav_ARX_LIFT2S.mp4)
