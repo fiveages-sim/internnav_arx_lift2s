@@ -102,7 +102,7 @@ In the dropdown, select:
 /camera_head/color/image_raw
 ```
 
-### T5 — DualVLN bridge (dry-run, then motion)
+### T5 — DualVLN bridge (base or SocialGen; dry-run, then motion)
 
 Bypass HTTP proxy for LAN if needed:
 
@@ -112,42 +112,59 @@ export no_proxy="$NO_PROXY"
 unset http_proxy HTTP_PROXY
 ```
 
-**Dry-run** (no `/cmd_vel`):
+| Model | `--model-path` |
+|-------|----------------|
+| **Original** DualVLN | `checkpoints/InternVLA-N1-DualVLN` |
+| **Finetuned** SocialGen | `checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115` |
+
+Restart `start_server.py` on zy when switching models or if `/agent/init` returns 500 after a prior run (5090 VRAM). SocialGen needs `chat_template.json` (copy from base if missing). Server: `source ~/SocialNav/InternNav/.venv/bin/activate && cd ~/SocialNav/InternNav && python scripts/eval/start_server.py --host 0.0.0.0 --port 8087`.
+
+Wheels + HTTP OK ⇒ stack is fine; missing a language goal is usually model/scene/instruction (discrete VLN, not guaranteed object search).
+
+**Dry-run** (no `/cmd_vel`) — pick one model:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 
+# Original
 /usr/bin/python3 ~/internnav_arx_lift2s/scripts/lift2s_internnav_bridge.py \
   --host 192.168.110.35 \
-  --instruction "go forward a little bit then stop" \
-  --steps 5
+  --model-path checkpoints/InternVLA-N1-DualVLN \
+  --instruction "Find the black chair" \
+  --steps 10
+
+# SocialGen finetune
+/usr/bin/python3 ~/internnav_arx_lift2s/scripts/lift2s_internnav_bridge.py \
+  --host 192.168.110.35 \
+  --model-path checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115 \
+  --instruction "Find the black chair" \
+  --steps 10
 ```
 
-**Motion** (e-stop ready):
+**Motion** (e-stop ready; restart server after dry-run if needed):
 
 ```bash
+# Original
 /usr/bin/python3 ~/internnav_arx_lift2s/scripts/lift2s_internnav_bridge.py \
   --host 192.168.110.35 \
-  --instruction "go forward a little bit then stop" \
-  --steps 5 \
+  --model-path checkpoints/InternVLA-N1-DualVLN \
+  --instruction "Find the black chair" \
+  --steps 50 \
   --enable-motion \
-  --v-lin 0.15 \
-  --v-ang 0.5 \
-  --pulse 1.5 \
-  --period 2.5
+  --v-lin 0.15 --v-ang 0.5 --pulse 1.5 --period 2.5
+
+# SocialGen finetune
+/usr/bin/python3 ~/internnav_arx_lift2s/scripts/lift2s_internnav_bridge.py \
+  --host 192.168.110.35 \
+  --model-path checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115 \
+  --instruction "Find the black chair" \
+  --steps 50 \
+  --enable-motion \
+  --v-lin 0.15 --v-ang 0.5 --pulse 1.5 --period 2.5
 ```
 
 If scripts live under `~/InternNav/scripts/` instead, substitute that path.
-
-**Checkpoints on zy** (pass `--model-path` on bridge/smoke; restart `start_server.py` when switching):
-
-| Model | `--model-path` |
-|-------|----------------|
-| Base DualVLN | `checkpoints/InternVLA-N1-DualVLN` |
-| SocialGen finetune | `checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115` |
-
-SocialGen needs `chat_template.json` in its checkpoint dir (copy from base if missing). DualVLN on zy uses the **uv** venv: `source ~/SocialNav/InternNav/.venv/bin/activate`.
 
 ---
 

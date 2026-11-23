@@ -102,7 +102,7 @@ ros2 run rqt_image_view rqt_image_view
 /camera_head/color/image_raw
 ```
 
-### T5 — DualVLN bridge（先干跑，再运动）
+### T5 — DualVLN bridge（基座或 SocialGen；先干跑，再运动）
 
 如需绕过局域网 HTTP 代理：
 
@@ -112,42 +112,59 @@ export no_proxy="$NO_PROXY"
 unset http_proxy HTTP_PROXY
 ```
 
-**干跑**（不发布 `/cmd_vel`）：
+| 模型 | `--model-path` |
+|------|----------------|
+| **原版** DualVLN | `checkpoints/InternVLA-N1-DualVLN` |
+| **微调** SocialGen | `checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115` |
+
+切换模型或先前运行后 `/agent/init` 返回 500 时，在 zy 上重启 `start_server.py`（5090 显存）。SocialGen 须含 `chat_template.json`（可从基座复制）。服务端：`source ~/SocialNav/InternNav/.venv/bin/activate && cd ~/SocialNav/InternNav && python scripts/eval/start_server.py --host 0.0.0.0 --port 8087`。
+
+轮子 + HTTP 正常 ⇒ 链路没问题；找不到语言目标多为模型/场景/指令（离散 VLN，不保证目标搜索）。
+
+**干跑**（不发布 `/cmd_vel`）— 二选一模型：
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 
+# 原版
 /usr/bin/python3 ~/internnav_arx_lift2s/scripts/lift2s_internnav_bridge.py \
   --host 192.168.110.35 \
-  --instruction "go forward a little bit then stop" \
-  --steps 5
+  --model-path checkpoints/InternVLA-N1-DualVLN \
+  --instruction "Find the black chair" \
+  --steps 10
+
+# SocialGen 微调
+/usr/bin/python3 ~/internnav_arx_lift2s/scripts/lift2s_internnav_bridge.py \
+  --host 192.168.110.35 \
+  --model-path checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115 \
+  --instruction "Find the black chair" \
+  --steps 10
 ```
 
-**运动**（急停就绪）：
+**运动**（急停就绪；dry-run 后必要时重启服务端）：
 
 ```bash
+# 原版
 /usr/bin/python3 ~/internnav_arx_lift2s/scripts/lift2s_internnav_bridge.py \
   --host 192.168.110.35 \
-  --instruction "go forward a little bit then stop" \
-  --steps 5 \
+  --model-path checkpoints/InternVLA-N1-DualVLN \
+  --instruction "Find the black chair" \
+  --steps 50 \
   --enable-motion \
-  --v-lin 0.15 \
-  --v-ang 0.5 \
-  --pulse 1.5 \
-  --period 2.5
+  --v-lin 0.15 --v-ang 0.5 --pulse 1.5 --period 2.5
+
+# SocialGen 微调
+/usr/bin/python3 ~/internnav_arx_lift2s/scripts/lift2s_internnav_bridge.py \
+  --host 192.168.110.35 \
+  --model-path checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115 \
+  --instruction "Find the black chair" \
+  --steps 50 \
+  --enable-motion \
+  --v-lin 0.15 --v-ang 0.5 --pulse 1.5 --period 2.5
 ```
 
 若脚本位于 `~/InternNav/scripts/`，请改用该路径。
-
-**zy 上的 checkpoint**（bridge/smoke 传 `--model-path`；切换时重启 `start_server.py`）：
-
-| 模型 | `--model-path` |
-|------|----------------|
-| 基座 DualVLN | `checkpoints/InternVLA-N1-DualVLN` |
-| SocialGen 微调 | `checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115` |
-
-SocialGen 目录须含 `chat_template.json`（缺失则从基座复制）。zy 上 DualVLN 使用 **uv** 虚拟环境：`source ~/SocialNav/InternNav/.venv/bin/activate`。
 
 ---
 
