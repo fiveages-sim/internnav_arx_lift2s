@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Smoke-test InternNav AgentServer with a fake or real RGB-D observation.
 
-Run on Sim-06 while start_server.py is listening on port 8087:
+Run on zy while start_server.py is listening on port 8087:
 
-  conda activate internnav
+  source ~/SocialNav/InternNav/.venv/bin/activate
   cd ~/InternNav
   python scripts/smoke_test_fake_obs.py --host localhost
 
-Or from the Lift2S robot (server on Sim-06):
+Or from the Lift2S robot (server on zy):
 
   python scripts/smoke_test_fake_obs.py --host 192.168.110.35
   python scripts/smoke_test_fake_obs.py --host 192.168.110.35 --npz /tmp/internnav_obs.npz
@@ -26,7 +26,7 @@ from internnav.utils.comm_utils.client import AgentClient
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--host', default='localhost', help='Sim-06 LAN IP, or localhost if on Sim-06')
+    parser.add_argument('--host', default='localhost', help='zy LAN IP, or localhost if on zy')
     parser.add_argument('--port', type=int, default=8087)
     parser.add_argument(
         '--model-path',

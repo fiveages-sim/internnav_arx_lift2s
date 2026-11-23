@@ -1,16 +1,16 @@
-# 基础干跑与运动指南 — Sim-06 ↔ ARX Lift2S
+# 基础干跑与运动指南 — zy ↔ ARX Lift2S
 
-从**连接 Sim-06 与 Lift2S** 到使用 InternNav DualVLN 进行**干跑**与**运动**的分步指令脚本。
+从**连接 zy 与 Lift2S** 到使用 InternNav DualVLN 进行**干跑**与**运动**的分步指令脚本。
 
 **前置条件：** 安装已完成（[Installation_Guide.md](./Installation_Guide.md)）。  
 **架构：** [InternNav_ARX_Lift2S_Architecture.md](./InternNav_ARX_Lift2S_Architecture.md)。
 
 | 机器 | 示例 IP | SSH / 登录 |
 |---------|------------|-------------|
-| **Sim-06**（模型服务） | `192.168.110.35` | `fiveages@Sim-06` |
+| **zy**（模型服务） | `192.168.110.35` | `zy GPU host` |
 | **Lift2S**（机器人） | `192.168.111.209` | `arx@192.168.111.209` |
 
-若局域网不同请替换 IP。确认 Sim-06：`ip -4 addr show enp4s0`。
+若局域网不同请替换 IP。确认 zy：`ip -4 addr show enp4s0`。
 
 **相机：** Intel RealSense D405（序列号示例 `323622271380`）。  
 **Bridge 脚本：** `~/internnav_arx_lift2s/scripts/lift2s_internnav_bridge.py`
@@ -20,7 +20,7 @@
 ## 启动顺序（务必遵守）
 
 ```text
-Sim-06 model server  →  Lift2S Zenoh  →  RealSense  →  [optional rqt]  →  dry-run
+zy model server  →  Lift2S Zenoh  →  RealSense  →  [optional rqt]  →  dry-run
                                                               ↓
                                                     quick_start (chassis)  →  motion
 ```
@@ -42,14 +42,14 @@ Lift2S 上的 D405 朝向**下方**。做语言导航时，通过 `quick_start.s
 
 ---
 
-## 1. Sim-06 — DualVLN 模型服务
+## 1. zy — DualVLN 模型服务
 
-**设备：** Sim-06  
-**终端：** `Sim-06-A`（保持打开）
+**设备：** zy  
+**终端：** `zy-A`（保持打开）
 
 ```bash
-conda activate internnav
-cd ~/InternNav
+source ~/SocialNav/InternNav/.venv/bin/activate
+cd ~/SocialNav/InternNav
 python scripts/eval/start_server.py --host 0.0.0.0 --port 8087
 ```
 
@@ -64,7 +64,7 @@ python scripts/eval/start_server.py --host 0.0.0.0 --port 8087
 INFO: Uvicorn running on http://0.0.0.0:8087
 ```
 
-**健康检查**（Sim-06 或局域网内任意机器）：
+**健康检查**（zy 或局域网内任意机器）：
 
 ```bash
 curl -sS --noproxy '*' -w "\nhttp_code=%{http_code}\n" --connect-timeout 3 \
@@ -166,7 +166,7 @@ ssh -X arx@192.168.111.209
 
 **设备：** Lift2S  
 **终端：** `Lift2S-T4`  
-**需要：** Sim-06-A、Lift2S-T1、Lift2S-T2 已运行。**不需要** `quick_start.sh`。
+**需要：** zy-A、Lift2S-T1、Lift2S-T2 已运行。**不需要** `quick_start.sh`。
 
 **原因：** 在移动底盘**之前**确认 HTTP 链路、相机 RGB-D 与模型动作。
 
@@ -192,7 +192,7 @@ Agent init OK: internvla_n1
 action raw=... → 1 (FORWARD)
 ```
 
-**Sim-06-A 上期望：** `POST /agent/init`（201）与 `POST /agent/internvla_n1/step`（200）。
+**zy-A 上期望：** `POST /agent/init`（201）与 `POST /agent/internvla_n1/step`（200）。
 
 **说明**
 
@@ -243,7 +243,7 @@ ros2 topic list | grep -E 'cmd_vel|arx_lift/odom'
 
 **设备：** Lift2S  
 **终端：** `Lift2S-T4`（复用 bridge 终端）  
-**需要：** Sim-06-A、Lift2S-T1、T2、**T5（`quick_start`）**
+**需要：** zy-A、Lift2S-T1、T2、**T5（`quick_start`）**
 
 **原因：** 闭环导航 — DualVLN 动作驱动底盘。
 
@@ -318,7 +318,7 @@ ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{}"
 | 4 | Lift2S-T3 | Ctrl+C `rqt`（若开着） |
 | 5 | Lift2S-T2 | Ctrl+C RealSense |
 | 6 | Lift2S-T1 | Ctrl+C Zenoh |
-| 7 | Sim-06-A | Ctrl+C 模型服务 |
+| 7 | zy-A | Ctrl+C 模型服务 |
 
 ---
 
@@ -326,7 +326,7 @@ ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{}"
 
 | ID | 设备 | 服务 |
 |----|--------|---------|
-| Sim-06-A | Sim-06 | `start_server.py --host 0.0.0.0 --port 8087` |
+| zy-A | zy | `start_server.py --host 0.0.0.0 --port 8087` |
 | Lift2S-T1 | Lift2S | `rmw_zenohd` |
 | Lift2S-T2 | Lift2S | RealSense launch |
 | Lift2S-T3 | Lift2S | `rqt_image_view`（可选） |
@@ -339,9 +339,9 @@ ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{}"
 
 | 现象 | 检查 |
 |---------|--------|
-| 连 `:8087` 出现 `Connection refused` | Sim-06-A 在跑？是否绑在 `:8023`？ |
+| 连 `:8087` 出现 `Connection refused` | zy-A 在跑？是否绑在 `:8023`？ |
 | `No RGB/depth` | T1 Zenoh + T2 RealSense 在跑？ |
-| `Agent init` 卡住 | 等待 Sim-06 首次模型加载 1–2 分钟 |
+| `Agent init` 卡住 | 等待 zy 首次模型加载 1–2 分钟 |
 | 底盘不动 | T5 `quick_start` 在跑？是否用了 `--enable-motion`？ |
 | 只原地转、到不了目标 | 抬高 AC_ONE 升降；把目标放进相机视野；增大 `--steps` |
 | 结束时长 `STOP` | 接近目标时正常 — 模型结束 episode |

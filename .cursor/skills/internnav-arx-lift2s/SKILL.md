@@ -2,10 +2,10 @@
 name: internnav-arx-lift2s
 description: >-
   Implements and debugs InternNav InternVLA-N1 DualVLN on ARX Lift2S with remote
-  inference on Sim-06 (HTTP Agent Service :8087), Zenoh ROS 2 camera/chassis on
+  inference on zy (HTTP Agent Service :8087), Zenoh ROS 2 camera/chassis on
   the robot, RealSense D405, lift2s-ws /cmd_vel bridge, proxy/NO_PROXY LAN fixes,
   and smoke/motion tests. Use when the user mentions InternNav, DualVLN,
-  InternVLA-N1, Lift2S navigation, Sim-06 model server, lift2s_internnav_bridge,
+  InternVLA-N1, Lift2S navigation, zy model server, lift2s_internnav_bridge,
   AgentClient, or bringing up language navigation on ARX Lift2S.
 ---
 
@@ -16,14 +16,14 @@ description: >-
 ```
 Robot (Lift2S): RealSense → ROS2/Zenoh → bridge → /cmd_vel
                       │
-                      └── HTTP POST :8087 ──► Sim-06: start_server.py + DualVLN GPU
+                      └── HTTP POST :8087 ──► zy: start_server.py + DualVLN GPU
 ```
 
 | Rule | Detail |
 |------|--------|
-| Inference host | **Sim-06 only** (`start_server.py --host 0.0.0.0 --port 8087`) |
+| Inference host | **zy only** (`start_server.py --host 0.0.0.0 --port 8087`) |
 | Robot GPU | Do **not** run DualVLN server on 8 GB laptop GPU |
-| Zenoh | Robot only (`rmw_zenohd`). **No** Zenoh on Sim-06 for this design |
+| Zenoh | Robot only (`rmw_zenohd`). **No** Zenoh on zy for this design |
 | Robot↔server | **HTTP**, not ROS |
 | Camera ownership | ROS launch **xor** `realsense-viewer`, never both |
 | Motion safety | Bridge defaults to dry-run; `--enable-motion` only with e-stop |
@@ -52,8 +52,8 @@ from internnav.utils.comm_utils.client import AgentClient
 Copy and track:
 
 ```
-- [ ] Sim-06: DualVLN checkpoint under checkpoints/InternVLA-N1-DualVLN
-- [ ] Sim-06: start_server.py listening; curl openapi → 200
+- [ ] zy: DualVLN checkpoint under checkpoints/InternVLA-N1-DualVLN
+- [ ] zy: start_server.py listening; curl openapi → 200
 - [ ] Robot: NO_PROXY / unset http_proxy for LAN
 - [ ] Robot: rmw_zenohd
 - [ ] Robot: RealSense USB 3.x + ros2 launch; topic hz ~30
@@ -66,7 +66,7 @@ Copy and track:
 
 | Where | Command role |
 |-------|----------------|
-| Sim-06 | `conda activate internnav && cd ~/InternNav && python scripts/eval/start_server.py --host 0.0.0.0 --port 8087` |
+| zy | `source ~/SocialNav/InternNav/.venv/bin/activate && cd ~/SocialNav/InternNav && python scripts/eval/start_server.py --host 0.0.0.0 --port 8087` |
 | Robot T1 | `source /opt/ros/jazzy/setup.bash && ros2 run rmw_zenoh_cpp rmw_zenohd` |
 | Robot T2 | RealSense `rs_launch.py` (serial with leading `_`) |
 | Robot T3 | `~/lift2s-ws/./quick_start.sh` |
@@ -102,17 +102,17 @@ DualVLN is VLN-style; literal `"turn right"` may still yield FORWARD/STOP. Scale
 
 | Task | Interpreter |
 |------|-------------|
-| `start_server.py`, `smoke_test_fake_obs.py` | `conda activate internnav` |
-| `capture_realsense_frame.py`, `lift2s_internnav_bridge.py` | `/usr/bin/python3` after sourcing ROS (rclpy ≠ conda 3.10) |
+| `start_server.py`, `smoke_test_fake_obs.py` | `source ~/SocialNav/InternNav/.venv/bin/activate` |
+| `capture_realsense_frame.py`, `lift2s_internnav_bridge.py` | `/usr/bin/python3` after sourcing ROS (rclpy ≠ uv InternNav 3.10) |
 
 ## When helping the user
 
-1. Confirm architecture (HTTP to Sim-06; Zenoh local).
+1. Confirm architecture (HTTP to zy; Zenoh local).
 2. Prefer existing scripts over inventing Go2-only InternNav realworld clients.
 3. Dry-run before `--enable-motion`.
 4. For “see camera”: `rqt_image_view` on `/camera_head/color/image_raw` while ROS owns device.
 5. Object goals need target **large and centered** in RGB; D405 is short-range.
-6. Do not recommend Zenoh on Sim-06 or DualVLN server on the robot.
+6. Do not recommend Zenoh on zy or DualVLN server on the robot.
 
 ## Additional resources
 

@@ -1,6 +1,8 @@
 # Implementing InternNav (InternVLA-N1 DualVLN) on ARX Lift2S
 
-**Document purpose.** Step-by-step guide for deploying [InternNav](https://github.com/OpenRobotLab/InternNav) language-conditioned navigation on an **ARX Lift2S** robot, with heavy inference on a remote GPU workstation (**Sim-06**) and sensing / chassis control on the robot.
+**Document purpose.** Step-by-step guide for deploying [InternNav](https://github.com/OpenRobotLab/InternNav) language-conditioned navigation on an **ARX Lift2S** robot, with heavy inference on a remote GPU workstation (**zy**) and sensing / chassis control on the robot.
+
+**Lab policy.** Use **[uv](https://docs.astral.sh/uv/)** on **zy** for DualVLN. Do **not** use conda.
 
 **Audience.** Engineers bringing up DualVLN on Lift2S (ROS 2 Jazzy, Ubuntu 24.04).
 
@@ -11,14 +13,14 @@
 | Role | Machine | Notes |
 |------|---------|--------|
 | Robot | ARX Lift2S host (`arx`) | ROS 2 Jazzy, Zenoh RMW, Intel RealSense D405, chassis via `lift2s-ws` |
-| Model server | Sim-06 (`fiveages@Sim-06`) | NVIDIA RTX 5090-class GPU, DualVLN checkpoint |
+| Model server | zy (`zy GPU host`) | NVIDIA RTX 5090-class GPU, DualVLN checkpoint |
 | Robot GPU | RTX 5070 Laptop (8 GB) | **Insufficient** for DualVLN; do not run the model server here |
 
 **Typical LAN addresses (replace with your site values).**
 
 | Host | Example IP |
 |------|------------|
-| Sim-06 | `192.168.110.35` |
+| zy | `192.168.110.35` |
 | Lift2S robot | `192.168.111.209` |
 
 ---
@@ -31,9 +33,9 @@ InternNav’s DualVLN agent expects RGB (and depth) observations plus a natural-
 
 ```
 ┌─────────────────────────────────────┐         HTTP :8087          ┌─────────────────────────────────────┐
-│  ARX Lift2S (robot)                 │ ──────────────────────────► │  Sim-06 (model server)               │
+│  ARX Lift2S (robot)                 │ ──────────────────────────► │  zy (model server)               │
 │                                     │                             │                                     │
-│  RealSense D405                     │     POST /agent/init        │  conda env: internnav               │
+│  RealSense D405                     │     POST /agent/init        │  uv .venv (InternNav)               │
 │       │                             │     POST /agent/.../step    │  start_server.py                    │
 │       ▼                             │     (pickle+base64 obs)     │  DualVLN weights on GPU             │
 │  realsense2_camera (ROS 2)          │ ◄────────────────────────── │  returns discrete actions           │
@@ -55,9 +57,9 @@ InternNav’s DualVLN agent expects RGB (and depth) observations plus a natural-
 |------|-----------|---------|
 | Camera → bridge | **ROS 2** (Zenoh RMW) on the **robot only** | Image topics under `/camera_head/...` |
 | Chassis odometry / `/cmd_vel` | **ROS 2** on the **robot only** | Drive the base |
-| Robot ↔ DualVLN | **HTTP** to Sim-06 `:8087` | Load agent + run `step` |
+| Robot ↔ DualVLN | **HTTP** to zy `:8087` | Load agent + run `step` |
 
-**Important.** You do **not** run a Zenoh router on Sim-06 for this design. Sim-06 does not join the robot’s ROS graph. Inference is remote HTTP, analogous to a microservice.
+**Important.** You do **not** run a Zenoh router on zy for this design. zy does not join the robot’s ROS graph. Inference is remote HTTP, analogous to a microservice.
 
 ### 1.3 Discrete actions
 
@@ -96,18 +98,18 @@ Upstream InternNav does not ship a Lift2S bridge. This bring-up adds (keep copie
 - Working `lift2s-ws` (`./quick_start.sh` can start chassis)
 - Intel RealSense D405 (or similar) with **USB 3.x** connection
 - RealSense ROS wrapper workspace, e.g. `~/ARX5_ROBOT_1-main/realsense`
-- Network reachability to Sim-06 on TCP port **8087**
+- Network reachability to zy on TCP port **8087**
 
-### 2.2 Sim-06
+### 2.2 zy
 
 - CUDA-capable GPU with enough VRAM for DualVLN (docs often cite ~24 GB class; RTX 5090 validated)
-- Conda / Miniconda
+- [uv](https://docs.astral.sh/uv/) (lab policy: **not** conda)
 - Disk space for InternNav + `checkpoints/InternVLA-N1-DualVLN`
 
 ### 2.3 Network / proxy notes (China / FlyingBird)
 
 - Use a proxy (e.g. FlyingBird `http://127.0.0.1:7892`) for **git clone**, **pip**, and **Hugging Face** downloads only.
-- For **LAN** traffic to Sim-06, bypass the proxy or you may see HTTP **502**:
+- For **LAN** traffic to zy, bypass the proxy or you may see HTTP **502**:
 
 ```bash
 export NO_PROXY="192.168.110.35,192.168.110.0/24,192.168.111.0/24,localhost,127.0.0.1"
@@ -128,7 +130,7 @@ VPN may stay off during day-to-day LAN operation once weights are local.
 
 ## 3. Clone InternNav
 
-Run on **both** robot and Sim-06 (or clone once and sync). Example on the robot with proxy:
+Run on **both** robot and zy (or clone once and sync). Example on the robot with proxy:
 
 ```bash
 # Enable proxy only for this clone session if required at your site
@@ -148,29 +150,30 @@ See also site-specific notes: `~/文档/Documentations/FlyingBird_GitHub_Clone_G
 
 ## 4. Python environment and dependencies
 
-### 4.1 Create the conda environment
+### 4.1 Create the uv environment
 
 On each machine that will run InternNav Python code:
 
 ```bash
-conda create -n internnav python=3.10 -y
-conda activate internnav
-cd ~/InternNav
+# Lab policy: uv — not conda
+cd ~/SocialNav/InternNav   # or ~/InternNav
+uv venv .venv --python 3.10
+source .venv/bin/activate
 ```
 
 **Why.** InternNav targets Python 3.10; isolating deps avoids conflicts with system ROS Python 3.12.
 
 ### 4.2 Install PyTorch (match GPU / CUDA)
 
-**Sim-06 (example validated stack):** CUDA 12.8 wheels such as Torch 2.7.x + cu128.
+**zy (example validated stack):** CUDA 12.8 wheels such as Torch 2.7.x + cu128.
 
 **Robot (if installing Torch at all):** prefer a build that supports the laptop GPU compute capability (e.g. RTX 5070 / `sm_120` may need newer cu128 builds). The robot still should **not** host DualVLN inference.
 
 Example pattern (adjust to current PyTorch index):
 
 ```bash
-conda activate internnav
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+source ~/SocialNav/InternNav/.venv/bin/activate
+uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 ```
 
 **Why.** DualVLN requires a working CUDA Torch on the **server**. Wrong CUDA/arch builds fail at import or at first CUDA op.
@@ -178,13 +181,13 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 ### 4.3 Install InternNav and Python deps
 
 ```bash
-conda activate internnav
+source ~/SocialNav/InternNav/.venv/bin/activate
 cd ~/InternNav
-pip install -e .
+uv pip install -e ".[model]" --no-build-isolation
 # Install remaining requirements per InternNav README / requirements/*
 ```
 
-On **Sim-06**, also ensure `flash_attn` works for DualVLN (compile from source needs `nvcc`, or install a matching **prebuilt wheel** for your Torch/CUDA/cxx11 ABI). Verify:
+On **zy**, also ensure `flash_attn` works for DualVLN (compile from source needs `nvcc`, or install a matching **prebuilt wheel** for your Torch/CUDA/cxx11 ABI). Verify:
 
 ```bash
 python -c "import flash_attn; print(flash_attn.__version__)"
@@ -198,29 +201,32 @@ from internnav.utils.comm_utils.client import AgentClient
 
 and keep `internnav/utils/__init__.py` lazy-loading `AgentServer`.
 
-### 4.4 Download DualVLN checkpoint (Sim-06)
+### 4.4 Download DualVLN checkpoint (zy)
 
 Place weights under the server’s InternNav root, for example:
 
 ```text
-~/InternNav/checkpoints/InternVLA-N1-DualVLN/
+~/SocialNav/InternNav/checkpoints/InternVLA-N1-DualVLN/
+~/SocialNav/InternNav/checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115/
 ```
 
 (multi-shard `safetensors` layout as released). Optional Depth-Anything weights are for other RGB-D / System-1 paths; DualVLN RGB navigation can run without them for this bring-up.
+
+For the **SocialGen** finetune, ensure `chat_template.json` exists in that checkpoint dir (copy from the base DualVLN folder if missing). Pass the relative path via the bridge/smoke `--model-path` (e.g. `checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115`). Restart `start_server.py` when switching models on a single 5090.
 
 **Why.** The Agent Server loads `model_path` relative to the InternNav project on the **server** machine when a client calls `/agent/init`.
 
 ---
 
-## 5. Model server on Sim-06
+## 5. Model server on zy
 
 ### 5.1 Start the Agent Service
 
-**Device: Sim-06 only.**
+**Device: zy only.**
 
 ```bash
-conda activate internnav
-cd ~/InternNav
+source ~/SocialNav/InternNav/.venv/bin/activate
+cd ~/SocialNav/InternNav
 python scripts/eval/start_server.py --host 0.0.0.0 --port 8087
 ```
 
@@ -235,7 +241,7 @@ Expected log lines include Uvicorn startup on `http://0.0.0.0:8087`. A Habitat w
 
 ### 5.2 Verify the OpenAPI surface
 
-On Sim-06 or the robot:
+On zy or the robot:
 
 ```bash
 curl -sS --noproxy '*' -w "\nhttp_code=%{http_code}\n" --connect-timeout 3 \
@@ -259,7 +265,7 @@ source /opt/ros/jazzy/setup.bash
 ros2 run rmw_zenoh_cpp rmw_zenohd
 ```
 
-**Why.** With `RMW_IMPLEMENTATION=rmw_zenoh_cpp`, ROS 2 nodes discover each other through a Zenoh router. Without it, topics may be empty or peers fail to connect. Keep this terminal open. **Sim-06 does not need this** for HTTP inference.
+**Why.** With `RMW_IMPLEMENTATION=rmw_zenoh_cpp`, ROS 2 nodes discover each other through a Zenoh router. Without it, topics may be empty or peers fail to connect. Keep this terminal open. **zy does not need this** for HTTP inference.
 
 ### 6.2 RealSense camera (USB 3.x)
 
@@ -313,12 +319,12 @@ Only one process may own the D405 at a time.
 
 ## 7. HTTP client smoke tests (no chassis motion)
 
-**Device: robot** (Sim-06 server must be up). Preserve `NO_PROXY` / unset `http_proxy` as in §2.3.
+**Device: robot** (zy server must be up). Preserve `NO_PROXY` / unset `http_proxy` as in §2.3.
 
-### 7.1 Fake observation (optional, also valid on Sim-06 with `--host localhost`)
+### 7.1 Fake observation (optional, also valid on zy with `--host localhost`)
 
 ```bash
-conda activate internnav
+source ~/SocialNav/InternNav/.venv/bin/activate
 cd ~/InternNav
 python scripts/smoke_test_fake_obs.py --host 192.168.110.35
 ```
@@ -329,7 +335,7 @@ python scripts/smoke_test_fake_obs.py --host 192.168.110.35
 
 ### 7.2 Real camera frame
 
-Capture with **system** Python (ROS Jazzy), not conda — `rclpy` is built for system Python 3.12:
+Capture with **system** Python (ROS Jazzy), not the InternNav uv venv — `rclpy` is built for system Python 3.12:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -337,10 +343,10 @@ source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 /usr/bin/python3 ~/InternNav/scripts/capture_realsense_frame.py --out /tmp/internnav_obs.npz
 ```
 
-Then send to Sim-06:
+Then send to zy:
 
 ```bash
-conda activate internnav
+source ~/SocialNav/InternNav/.venv/bin/activate
 cd ~/InternNav
 python scripts/smoke_test_fake_obs.py --host 192.168.110.35 \
   --npz /tmp/internnav_obs.npz \
@@ -385,9 +391,9 @@ ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{}"
 
 ## 9. Closed-loop bridge (camera → DualVLN → `/cmd_vel`)
 
-**Device: robot.** Keep Sim-06 server, Zenoh, RealSense, and `lift2s-ws` running.
+**Device: robot.** Keep zy server, Zenoh, RealSense, and `lift2s-ws` running.
 
-The bridge script uses **system Python** (`rclpy` + `requests`) and talks to Sim-06 over HTTP (`trust_env=False` so LAN is not proxied).
+The bridge script uses **system Python** (`rclpy` + `requests`) and talks to zy over HTTP (`trust_env=False` so LAN is not proxied).
 
 ### 9.1 Dry-run (required first)
 
@@ -438,13 +444,13 @@ DualVLN can attempt goals such as `"go to the black tumbler then stop"` when the
 
 | Terminal | Machine | Command / role |
 |----------|---------|----------------|
-| 1 | Sim-06 | `start_server.py --host 0.0.0.0 --port 8087` |
+| 1 | zy | `start_server.py --host 0.0.0.0 --port 8087` |
 | 2 | Robot | `rmw_zenohd` |
 | 3 | Robot | RealSense `ros2 launch ...` |
 | 4 | Robot | `lift2s-ws` `./quick_start.sh` |
 | 5 | Robot | Bridge / smoke tests / `rqt_image_view` |
 
-Startup order: **Sim-06 server** → **Zenoh** → **camera** → **chassis** → **bridge**.
+Startup order: **zy server** → **Zenoh** → **camera** → **chassis** → **bridge**.
 
 ---
 
@@ -477,7 +483,7 @@ Startup order: **Sim-06 server** → **Zenoh** → **camera** → **chassis** �
 
 ## 13. What this bring-up achieved (checklist)
 
-- [x] InternNav installed; DualVLN checkpoint on Sim-06  
+- [x] InternNav installed; DualVLN checkpoint on zy  
 - [x] Agent Service listening on `:8087`  
 - [x] Robot reaches OpenAPI (`http_code=200`)  
 - [x] Zenoh + RealSense RGB-D on Lift2S  
@@ -492,13 +498,13 @@ Startup order: **Sim-06 server** → **Zenoh** → **camera** → **chassis** �
 ## 14. Reference: communication sequence
 
 1. Bridge (or smoke client) `POST /agent/init` with `AgentCfg` / `model_settings` (including `model_path` on the **server** filesystem, `device: cuda:0`, camera intrinsics, image size).
-2. Server loads DualVLN into GPU memory (shard load visible in Sim-06 logs) and returns `agent_name` (e.g. `internvla_n1`).
+2. Server loads DualVLN into GPU memory (shard load visible in zy logs) and returns `agent_name` (e.g. `internvla_n1`).
 3. Client builds observation dict `{rgb, depth, instruction}`, pickles and base64-encodes it, `POST /agent/{agent_name}/step`.
 4. Server runs DualVLN and returns JSON actions.
 5. Bridge maps the first discrete code to a short `geometry_msgs/Twist` pulse on `/cmd_vel` (if `--enable-motion`).
 6. Lift2S HI converts `/cmd_vel` to chassis commands when enabled.
 
-ROS 2 never crosses the robot↔Sim-06 boundary in this design; only HTTP does.
+ROS 2 never crosses the robot↔zy boundary in this design; only HTTP does.
 
 ---
 
@@ -509,7 +515,7 @@ ROS 2 never crosses the robot↔Sim-06 boundary in this design; only HTTP does.
 | Platform | ARX Lift2S + InternNav DualVLN |
 | ROS | Jazzy + `rmw_zenoh_cpp` |
 | Camera | Intel RealSense D405 @ 640×480 |
-| Inference host | Remote Sim-06 Agent Service `:8087` |
+| Inference host | Remote zy Agent Service `:8087` |
 | Guide status | Validated through closed-loop `/cmd_vel` motion tests |
 
 Maintainers should update example IPs, serial numbers, and Torch/CUDA pin versions when the lab environment changes.

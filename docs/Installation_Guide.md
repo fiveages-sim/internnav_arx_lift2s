@@ -1,6 +1,8 @@
 # 在 ARX Lift2S 上部署 InternNav（InternVLA-N1 DualVLN）
 
-**文档目的。** 分步说明如何在 **ARX Lift2S** 机器人上部署 [InternNav](https://github.com/OpenRobotLab/InternNav) 语言条件导航：重推理在远程 GPU 工作站（**Sim-06**）上完成，感知与底盘控制在机器人端完成。
+**文档目的。** 分步说明如何在 **ARX Lift2S** 机器人上部署 [InternNav](https://github.com/OpenRobotLab/InternNav) 语言条件导航：重推理在远程 GPU 工作站（**zy**）上完成，感知与底盘控制在机器人端完成。
+
+**实验室规定。** DualVLN 在 **zy** 上使用 **[uv](https://docs.astral.sh/uv/)**，**不要**再用 conda。
 
 **读者对象。** 在 Lift2S 上调试 DualVLN 的工程师（ROS 2 Jazzy，Ubuntu 24.04）。
 
@@ -11,14 +13,14 @@
 | 角色 | 机器 | 说明 |
 |------|---------|--------|
 | 机器人 | ARX Lift2S 主机（`arx`） | ROS 2 Jazzy、Zenoh RMW、Intel RealSense D405、底盘经 `lift2s-ws` |
-| 模型服务 | Sim-06（`fiveages@Sim-06`） | NVIDIA RTX 5090 级 GPU、DualVLN checkpoint |
+| 模型服务 | zy（`zy GPU host`） | NVIDIA RTX 5090 级 GPU、DualVLN checkpoint |
 | 机器人 GPU | RTX 5070 Laptop（8 GB） | DualVLN **显存不足**；请勿在此运行模型服务 |
 
 **典型局域网地址（请按现场替换）。**
 
 | 主机 | 示例 IP |
 |------|------------|
-| Sim-06 | `192.168.110.35` |
+| zy | `192.168.110.35` |
 | Lift2S 机器人 | `192.168.111.209` |
 
 ---
@@ -31,9 +33,9 @@ InternNav 的 DualVLN agent 接收 RGB（及 depth）观测与自然语言指令
 
 ```
 ┌─────────────────────────────────────┐         HTTP :8087          ┌─────────────────────────────────────┐
-│  ARX Lift2S (robot)                 │ ──────────────────────────► │  Sim-06 (model server)               │
+│  ARX Lift2S (robot)                 │ ──────────────────────────► │  zy (model server)               │
 │                                     │                             │                                     │
-│  RealSense D405                     │     POST /agent/init        │  conda env: internnav               │
+│  RealSense D405                     │     POST /agent/init        │  uv .venv (InternNav)               │
 │       │                             │     POST /agent/.../step    │  start_server.py                    │
 │       ▼                             │     (pickle+base64 obs)     │  DualVLN weights on GPU             │
 │  realsense2_camera (ROS 2)          │ ◄────────────────────────── │  returns discrete actions           │
@@ -55,9 +57,9 @@ InternNav 的 DualVLN agent 接收 RGB（及 depth）观测与自然语言指令
 |------|-----------|---------|
 | 相机 → bridge | **ROS 2**（Zenoh RMW），仅在**机器人本机** | `/camera_head/...` 下的图像话题 |
 | 底盘里程计 / `/cmd_vel` | **ROS 2**，仅在**机器人本机** | 驱动底盘 |
-| 机器人 ↔ DualVLN | **HTTP** 到 Sim-06 `:8087` | 加载 agent + 执行 `step` |
+| 机器人 ↔ DualVLN | **HTTP** 到 zy `:8087` | 加载 agent + 执行 `step` |
 
-**重要。** 该设计下 **不要** 在 Sim-06 上运行 Zenoh 路由。Sim-06 不加入机器人的 ROS 图。推理是远程 HTTP，类似微服务。
+**重要。** 该设计下 **不要** 在 zy 上运行 Zenoh 路由。zy 不加入机器人的 ROS 图。推理是远程 HTTP，类似微服务。
 
 ### 1.3 离散动作
 
@@ -96,18 +98,18 @@ DualVLN 返回 Habitat 风格编码（与 InternNav 真机客户端约定一致�
 - 可用的 `lift2s-ws`（`./quick_start.sh` 能启动底盘）
 - Intel RealSense D405（或同类），**USB 3.x** 连接
 - RealSense ROS 封装工作空间，例如 `~/ARX5_ROBOT_1-main/realsense`
-- 网络可达 Sim-06 的 TCP 端口 **8087**
+- 网络可达 zy 的 TCP 端口 **8087**
 
-### 2.2 Sim-06
+### 2.2 zy
 
 - 具备足够显存运行 DualVLN 的 CUDA GPU（文档常提到约 24 GB 级；已验证 RTX 5090）
-- Conda / Miniconda
+- [uv](https://docs.astral.sh/uv/) (lab policy: **not** conda)
 - 足够磁盘空间存放 InternNav + `checkpoints/InternVLA-N1-DualVLN`
 
 ### 2.3 网络 / 代理说明（国内 / FlyingBird）
 
 - 代理（例如 FlyingBird `http://127.0.0.1:7892`）仅用于 **git clone**、**pip** 与 **Hugging Face** 下载。
-- 访问 Sim-06 的 **局域网** 流量须绕过代理，否则可能出现 HTTP **502**：
+- 访问 zy 的 **局域网** 流量须绕过代理，否则可能出现 HTTP **502**：
 
 ```bash
 export NO_PROXY="192.168.110.35,192.168.110.0/24,192.168.111.0/24,localhost,127.0.0.1"
@@ -128,7 +130,7 @@ curl -sS --noproxy '*' -w "\nhttp_code=%{http_code}\n" --connect-timeout 3 \
 
 ## 3. 克隆 InternNav
 
-在**机器人与 Sim-06 两端**都执行（或克隆一次再同步）。机器人端带代理示例：
+在**机器人与 zy 两端**都执行（或克隆一次再同步）。机器人端带代理示例：
 
 ```bash
 # Enable proxy only for this clone session if required at your site
@@ -148,29 +150,30 @@ cd InternNav
 
 ## 4. Python 环境与依赖
 
-### 4.1 创建 conda 环境
+### 4.1 创建 uv 环境
 
 在每台将运行 InternNav Python 代码的机器上：
 
 ```bash
-conda create -n internnav python=3.10 -y
-conda activate internnav
-cd ~/InternNav
+# 实验室规定：用 uv，不用 conda
+cd ~/SocialNav/InternNav   # 或 ~/InternNav
+uv venv .venv --python 3.10
+source .venv/bin/activate
 ```
 
 **原因。** InternNav 面向 Python 3.10；隔离依赖可避免与系统 ROS Python 3.12 冲突。
 
 ### 4.2 安装 PyTorch（匹配 GPU / CUDA）
 
-**Sim-06（已验证示例栈）：** CUDA 12.8 wheel，例如 Torch 2.7.x + cu128。
+**zy（已验证示例栈）：** CUDA 12.8 wheel，例如 Torch 2.7.x + cu128。
 
 **机器人（若安装 Torch）：** 优先选择支持笔记本 GPU 计算能力的构建（例如 RTX 5070 / `sm_120` 可能需要较新的 cu128 构建）。机器人仍**不应**承载 DualVLN 推理。
 
 示例模式（按当前 PyTorch 索引调整）：
 
 ```bash
-conda activate internnav
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
+source ~/SocialNav/InternNav/.venv/bin/activate
+uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 ```
 
 **原因。** DualVLN 需要在**服务端**有可用的 CUDA Torch。错误的 CUDA/架构构建会在 import 或首次 CUDA 算子处失败。
@@ -178,13 +181,13 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 ### 4.3 安装 InternNav 与 Python 依赖
 
 ```bash
-conda activate internnav
+source ~/SocialNav/InternNav/.venv/bin/activate
 cd ~/InternNav
-pip install -e .
+uv pip install -e ".[model]" --no-build-isolation
 # Install remaining requirements per InternNav README / requirements/*
 ```
 
-在 **Sim-06** 上还需确保 DualVLN 可用的 `flash_attn`（从源码编译需要 `nvcc`，或安装匹配 Torch/CUDA/cxx11 ABI 的**预编译 wheel**）。验证：
+在 **zy** 上还需确保 DualVLN 可用的 `flash_attn`（从源码编译需要 `nvcc`，或安装匹配 Torch/CUDA/cxx11 ABI 的**预编译 wheel**）。验证：
 
 ```bash
 python -c "import flash_attn; print(flash_attn.__version__)"
@@ -198,13 +201,16 @@ from internnav.utils.comm_utils.client import AgentClient
 
 并保持 `internnav/utils/__init__.py` 对 `AgentServer` 懒加载。
 
-### 4.4 下载 DualVLN checkpoint（Sim-06）
+### 4.4 下载 DualVLN checkpoint（zy）
 
 将权重放在服务端 InternNav 根目录下，例如：
 
 ```text
-~/InternNav/checkpoints/InternVLA-N1-DualVLN/
+~/SocialNav/InternNav/checkpoints/InternVLA-N1-DualVLN/
+~/SocialNav/InternNav/checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115/
 ```
+
+SocialGen 微调目录须含 `chat_template.json`（缺失则从基座 DualVLN 复制）。用 bridge/smoke 的 `--model-path` 传入相对路径；5090 上切换模型时重启 `start_server.py`。
 
 （按发布的多分片 `safetensors` 布局）。可选的 Depth-Anything 权重用于其他 RGB-D / System-1 路径；本 bring-up 的 DualVLN RGB 导航可不依赖它们。
 
@@ -212,15 +218,15 @@ from internnav.utils.comm_utils.client import AgentClient
 
 ---
 
-## 5. 在 Sim-06 上启动模型服务
+## 5. 在 zy 上启动模型服务
 
 ### 5.1 启动 Agent Service
 
-**设备：仅 Sim-06。**
+**设备：仅 zy。**
 
 ```bash
-conda activate internnav
-cd ~/InternNav
+source ~/SocialNav/InternNav/.venv/bin/activate
+cd ~/SocialNav/InternNav
 python scripts/eval/start_server.py --host 0.0.0.0 --port 8087
 ```
 
@@ -235,7 +241,7 @@ python scripts/eval/start_server.py --host 0.0.0.0 --port 8087
 
 ### 5.2 验证 OpenAPI 接口
 
-在 Sim-06 或机器人上：
+在 zy 或机器人上：
 
 ```bash
 curl -sS --noproxy '*' -w "\nhttp_code=%{http_code}\n" --connect-timeout 3 \
@@ -259,7 +265,7 @@ source /opt/ros/jazzy/setup.bash
 ros2 run rmw_zenoh_cpp rmw_zenohd
 ```
 
-**原因。** 当 `RMW_IMPLEMENTATION=rmw_zenoh_cpp` 时，ROS 2 节点通过 Zenoh 路由发现彼此。没有它，话题可能为空或对端无法连接。保持该终端打开。**HTTP 推理不需要**在 Sim-06 上跑此进程。
+**原因。** 当 `RMW_IMPLEMENTATION=rmw_zenoh_cpp` 时，ROS 2 节点通过 Zenoh 路由发现彼此。没有它，话题可能为空或对端无法连接。保持该终端打开。**HTTP 推理不需要**在 zy 上跑此进程。
 
 ### 6.2 RealSense 相机（USB 3.x）
 
@@ -313,12 +319,12 @@ ros2 topic hz /camera_head/color/image_raw
 
 ## 7. HTTP 客户端冒烟测试（无底盘运动）
 
-**设备：机器人**（Sim-06 服务须已启动）。按 §2.3 保留 `NO_PROXY` / 取消 `http_proxy`。
+**设备：机器人**（zy 服务须已启动）。按 §2.3 保留 `NO_PROXY` / 取消 `http_proxy`。
 
-### 7.1 假观测（可选；在 Sim-06 上用 `--host localhost` 也有效）
+### 7.1 假观测（可选；在 zy 上用 `--host localhost` 也有效）
 
 ```bash
-conda activate internnav
+source ~/SocialNav/InternNav/.venv/bin/activate
 cd ~/InternNav
 python scripts/smoke_test_fake_obs.py --host 192.168.110.35
 ```
@@ -329,7 +335,7 @@ python scripts/smoke_test_fake_obs.py --host 192.168.110.35
 
 ### 7.2 真实相机帧
 
-用**系统** Python（ROS Jazzy）捕获，不要用 conda — `rclpy` 面向系统 Python 3.12 构建：
+用**系统** Python（ROS Jazzy）捕获，不要用 InternNav 的 uv 虚拟环境 — `rclpy` 面向系统 Python 3.12 构建：
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -337,10 +343,10 @@ source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 /usr/bin/python3 ~/InternNav/scripts/capture_realsense_frame.py --out /tmp/internnav_obs.npz
 ```
 
-然后发送到 Sim-06：
+然后发送到 zy：
 
 ```bash
-conda activate internnav
+source ~/SocialNav/InternNav/.venv/bin/activate
 cd ~/InternNav
 python scripts/smoke_test_fake_obs.py --host 192.168.110.35 \
   --npz /tmp/internnav_obs.npz \
@@ -385,9 +391,9 @@ ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{}"
 
 ## 9. 闭环 bridge（相机 → DualVLN → `/cmd_vel`）
 
-**设备：机器人。** 保持 Sim-06 服务、Zenoh、RealSense 与 `lift2s-ws` 运行。
+**设备：机器人。** 保持 zy 服务、Zenoh、RealSense 与 `lift2s-ws` 运行。
 
-bridge 脚本使用**系统 Python**（`rclpy` + `requests`），经 HTTP 与 Sim-06 通信（`trust_env=False`，使局域网不被代理）。
+bridge 脚本使用**系统 Python**（`rclpy` + `requests`），经 HTTP 与 zy 通信（`trust_env=False`，使局域网不被代理）。
 
 ### 9.1 干跑（必须先做）
 
@@ -438,13 +444,13 @@ source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 
 | 终端 | 机器 | 命令 / 角色 |
 |----------|---------|----------------|
-| 1 | Sim-06 | `start_server.py --host 0.0.0.0 --port 8087` |
+| 1 | zy | `start_server.py --host 0.0.0.0 --port 8087` |
 | 2 | 机器人 | `rmw_zenohd` |
 | 3 | 机器人 | RealSense `ros2 launch ...` |
 | 4 | 机器人 | `lift2s-ws` `./quick_start.sh` |
 | 5 | 机器人 | Bridge / 冒烟测试 / `rqt_image_view` |
 
-启动顺序：**Sim-06 服务** → **Zenoh** → **相机** → **底盘** → **bridge**。
+启动顺序：**zy 服务** → **Zenoh** → **相机** → **底盘** → **bridge**。
 
 ---
 
@@ -477,7 +483,7 @@ source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 
 ## 13. 本 bring-up 已达成内容（清单）
 
-- [x] 已安装 InternNav；DualVLN checkpoint 在 Sim-06 上  
+- [x] 已安装 InternNav；DualVLN checkpoint 在 zy 上  
 - [x] Agent Service 监听 `:8087`  
 - [x] 机器人可达 OpenAPI（`http_code=200`）  
 - [x] Lift2S 上 Zenoh + RealSense RGB-D  
@@ -492,13 +498,13 @@ source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 ## 14. 参考：通信时序
 
 1. Bridge（或冒烟客户端）`POST /agent/init`，携带 `AgentCfg` / `model_settings`（含**服务端**文件系统上的 `model_path`、`device: cuda:0`、相机内参、图像尺寸）。
-2. 服务端将 DualVLN 载入 GPU 显存（Sim-06 日志可见分片加载），返回 `agent_name`（例如 `internvla_n1`）。
+2. 服务端将 DualVLN 载入 GPU 显存（zy 日志可见分片加载），返回 `agent_name`（例如 `internvla_n1`）。
 3. 客户端构建观测字典 `{rgb, depth, instruction}`，pickle 后 base64 编码，`POST /agent/{agent_name}/step`。
 4. 服务端运行 DualVLN，返回 JSON 动作。
 5. Bridge 将第一个离散编码映射为 `/cmd_vel` 上的短时 `geometry_msgs/Twist` 脉冲（若启用 `--enable-motion`）。
 6. 在启用时，Lift2S HI 将 `/cmd_vel` 转为底盘指令。
 
-该设计下 ROS 2 **从不**跨越机器人↔Sim-06 边界；跨越边界的只有 HTTP。
+该设计下 ROS 2 **从不**跨越机器人↔zy 边界；跨越边界的只有 HTTP。
 
 ---
 
@@ -509,7 +515,7 @@ source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 | 平台 | ARX Lift2S + InternNav DualVLN |
 | ROS | Jazzy + `rmw_zenoh_cpp` |
 | 相机 | Intel RealSense D405 @ 640×480 |
-| 推理主机 | 远程 Sim-06 Agent Service `:8087` |
+| 推理主机 | 远程 zy Agent Service `:8087` |
 | 指南状态 | 已通过闭环 `/cmd_vel` 运动测试验证 |
 
 实验室环境变化时，维护者应更新示例 IP、序列号以及 Torch/CUDA 锁定版本。

@@ -1,19 +1,19 @@
 # Quick Start — InternNav DualVLN on ARX Lift2S
 
-Assumes installation is complete (InternNav + DualVLN on Sim-06, ROS / RealSense / `lift2s-ws` on the robot).  
-Replace `192.168.110.35` with your Sim-06 LAN IP if different. Camera serial example: `323622271380`.
+Assumes installation is complete (InternNav + DualVLN on zy, ROS / RealSense / `lift2s-ws` on the robot).  
+Replace `192.168.110.35` with your zy LAN IP if different. Camera serial example: `323622271380`.
 
-**Startup order:** Sim-06 server → Zenoh → RealSense → chassis (`quick_start.sh`) → bridge / `rqt`.
+**Startup order:** zy server → Zenoh → RealSense → chassis (`quick_start.sh`) → bridge / `rqt`.
 
 Keep an e-stop ready before `--enable-motion`.
 
 ---
 
-## Sim-06 — model server
+## zy — model server
 
 ```bash
-conda activate internnav
-cd ~/InternNav
+source ~/SocialNav/InternNav/.venv/bin/activate
+cd ~/SocialNav/InternNav
 python scripts/eval/start_server.py --host 0.0.0.0 --port 8087
 ```
 
@@ -140,6 +140,15 @@ source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 
 If scripts live under `~/InternNav/scripts/` instead, substitute that path.
 
+**Checkpoints on zy** (pass `--model-path` on bridge/smoke; restart `start_server.py` when switching):
+
+| Model | `--model-path` |
+|-------|----------------|
+| Base DualVLN | `checkpoints/InternVLA-N1-DualVLN` |
+| SocialGen finetune | `checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115` |
+
+SocialGen needs `chat_template.json` in its checkpoint dir (copy from base if missing). DualVLN on zy uses the **uv** venv: `source ~/SocialNav/InternNav/.venv/bin/activate`.
+
 ---
 
 ## Optional one-shot smoke (no chassis)
@@ -150,10 +159,11 @@ source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 /usr/bin/python3 ~/internnav_arx_lift2s/scripts/capture_realsense_frame.py \
   --out /tmp/internnav_obs.npz
 
-conda activate internnav
-cd ~/InternNav
+source ~/SocialNav/InternNav/.venv/bin/activate
+cd ~/SocialNav/InternNav
 python ~/internnav_arx_lift2s/scripts/smoke_test_fake_obs.py \
   --host 192.168.110.35 \
+  --model-path checkpoints/InternVLA-N1-DualVLN \
   --npz /tmp/internnav_obs.npz \
   --instruction "go forward a little bit then stop"
 ```
@@ -164,4 +174,4 @@ python ~/internnav_arx_lift2s/scripts/smoke_test_fake_obs.py \
 
 - Bridge / `rqt`: `Ctrl+C`
 - Stop base: `ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{}"`
-- Then stop RealSense, Zenoh, `quick_start` launch, and Sim-06 server as needed
+- Then stop RealSense, Zenoh, `quick_start` launch, and zy server as needed

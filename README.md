@@ -3,7 +3,7 @@
 在 ARX Lift2S 上运行 InternNav DualVLN 的集成脚本与文档。
 
 - 机器人端：ROS 2 Jazzy + Zenoh + RealSense D405 + `open-deploy-ws`（`arx-lift2s`）
-- 推理端：GPU 主机上的 InternNav Agent Server（例如 Sim-06），HTTP `:8087`
+- 推理端：GPU 主机上的 InternNav Agent Server（例如 zy），HTTP `:8087`
 
 本仓库**不是**完整的 InternNav fork。模型服务请克隆上游 InternNav：
 
@@ -21,7 +21,7 @@ https://github.com/fiveages-sim/open-deploy-ws（分支 `arx-lift2s`）
 | `scripts/capture_realsense_frame.py` | 从 ROS 捕获一帧 RGB-D |
 | `scripts/lift2s_internnav_bridge.py` | 相机 → DualVLN → 可选 `/cmd_vel` |
 | `docs/` | 实现与架构指南 |
-| `docs/Basic_Dry_Run_and_Motion_Guide.md` | Sim-06 ↔ Lift2S 干跑 + 运动指令脚本 |
+| `docs/Basic_Dry_Run_and_Motion_Guide.md` | zy ↔ Lift2S 干跑 + 运动指令脚本 |
 | `patches/internnav_utils_init.py` | 机器人端懒加载 `AgentClient` 的辅助补丁 |
 
 ## 快速开始

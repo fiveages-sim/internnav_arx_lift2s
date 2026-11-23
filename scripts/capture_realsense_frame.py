@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Grab one RealSense RGB-D pair from ROS 2 and save to .npz.
 
-Use system Python (ROS Jazzy), NOT the internnav conda env:
+Use system Python (ROS Jazzy), NOT the InternNav uv venv:
 
   source /opt/ros/jazzy/setup.bash
   source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash

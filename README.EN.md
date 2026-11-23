@@ -3,7 +3,7 @@
 Integration scripts and docs to run InternNav DualVLN on ARX Lift2S.
 
 - Robot: ROS 2 Jazzy + Zenoh + RealSense D405 + `open-deploy-ws` (`arx-lift2s`)
-- Inference: InternNav Agent Server on a GPU PC (e.g. Sim-06), HTTP `:8087`
+- Inference: InternNav Agent Server on a GPU PC (e.g. zy), HTTP `:8087`
 
 This repository is **not** a full InternNav fork. Clone upstream InternNav for the model server:
 
@@ -21,7 +21,7 @@ https://github.com/fiveages-sim/open-deploy-ws (branch `arx-lift2s`)
 | `scripts/capture_realsense_frame.py` | Capture one RGB-D frame from ROS |
 | `scripts/lift2s_internnav_bridge.py` | Camera → DualVLN → optional `/cmd_vel` |
 | `docs/` | Implementation + architecture guides |
-| `docs/Basic_Dry_Run_and_Motion_Guide.md` | Sim-06 ↔ Lift2S dry-run + motion command script |
+| `docs/Basic_Dry_Run_and_Motion_Guide.md` | zy ↔ Lift2S dry-run + motion command script |
 | `patches/internnav_utils_init.py` | Lazy `AgentClient` import helper for robot |
 
 ## Quick start

@@ -8,7 +8,7 @@
 - 上游：[InternRobotics/InternNav](https://github.com/InternRobotics/InternNav)
 - 论文：[InternVLA-N1 technical report](https://internrobotics.github.io/internvla-n1.github.io/)、[DualVLN (arXiv:2512.08186)](https://arxiv.org/abs/2512.08186)
 
-**已验证布局。** Lift2S 机载 PC（`arx`）运行相机 + 底盘 ROS；DualVLN 推理在 **Sim-06** 上经 HTTP `:8087` 完成。
+**已验证布局。** Lift2S 机载 PC（`arx`）运行相机 + 底盘 ROS；DualVLN 推理在 **zy** 上经 HTTP `:8087` 完成。
 
 ---
 
@@ -78,10 +78,10 @@ ROS 2 是 **发布/订阅** 系统。节点不会像 REST API 那样互相调用
 **关于 Lift2S 上 InternNav 的重要澄清：**
 
 - Zenoh 用于**机载** ROS 流量（相机 ↔ bridge ↔ 底盘）。
-- Sim-06 上的 DualVLN **不**加入该 Zenoh 图。
-- 机器人 ↔ Sim-06 使用 **HTTP**，而非 ROS。
+- zy 上的 DualVLN **不**加入该 Zenoh 图。
+- 机器人 ↔ zy 使用 **HTTP**，而非 ROS。
 
-因此：“D405 经 ROS 2 Zenoh 通信”在**机器人内部**是正确的。这**不是** Sim-06 上 DualVLN 接收图像的方式。
+因此：“D405 经 ROS 2 Zenoh 通信”在**机器人内部**是正确的。这**不是** zy 上 DualVLN 接收图像的方式。
 
 ### 1.4 机器人如何“理解”/接收 RGB 话题
 
@@ -144,7 +144,7 @@ README 中的三条：
    双系统，其中 System 1 为 **NavDP\***（与 System 2 联合调优）。观测常为 **RGB-D**。
 
 3. **InternVLA-N1 (Dual System) DualVLN** ← **我们在 Lift2S 上运行的**  
-   双系统 DualVLN 变体；在基准上有较强的 **RGB** VLN 表现。这是在 Sim-06 上提供的 checkpoint。
+   双系统 DualVLN 变体；在基准上有较强的 **RGB** VLN 表现。这是在 zy 上提供的 checkpoint。
 
 **在 Lift2S 上我们仅使用 DualVLN**（远程 Agent Service）。不会同时运行全部三套栈。
 
@@ -168,7 +168,7 @@ README 中的三条：
 | 问题 | 回答 |
 |----------|--------|
 | 上游 DualVLN 是否订阅 `/camera_head/color/image_raw`？ | **否。** |
-| Sim-06 上的 DualVLN 是否看到 ROS 话题？ | **否。** 它只看到 HTTP 请求体。 |
+| zy 上的 DualVLN 是否看到 ROS 话题？ | **否。** 它只看到 HTTP 请求体。 |
 | RGB 帧如何到达 DualVLN？ | 机器人 bridge 在 ROS 中**订阅** → 打包 NumPy → **HTTP** `POST /agent/.../step`。 |
 | InternNav / DualVLN 是否发布 `/cmd_vel`？ | **否。** |
 | 谁发布 `/cmd_vel`？ | 我们的 **`lift2s_internnav_bridge.py`**（在 `--enable-motion` 时），将离散动作映射为 `geometry_msgs/Twist`。 |
@@ -180,7 +180,7 @@ D405 USB
   → realsense2_camera (pub RGB/Depth)
   → Zenoh ROS graph (robot-local)
   → lift2s_internnav_bridge (sub Image)
-  → HTTP JSON (pickle+base64 observation) → Sim-06 Agent Server
+  → HTTP JSON (pickle+base64 observation) → zy Agent Server
   → DualVLN GPU inference
   → HTTP JSON action codes
   → bridge maps 0/1/2/3 → Twist
@@ -215,8 +215,8 @@ DualVLN **不会**输出像 “forward” 这样的英文词。它输出 **离�
 
 | 路径 | 用途 | 为何需要 |
 |------|---------|------------|
-| `~/InternNav/scripts/smoke_test_fake_obs.py` | HTTP 冒烟：在 Sim-06 上初始化 DualVLN agent，并用合成 RGB-D 帧或 `--npz` 真实捕获调用 `step` | 在**无**底盘运动时证明局域网 + Agent Service + checkpoint 加载 |
-| `~/InternNav/scripts/capture_realsense_frame.py` | ROS 订阅者（系统 Python），等待一帧 color + depth 并写入 `/tmp/internnav_obs.npz` | 将 ROS/`rclpy`（系统 Python 3.12）与 conda InternNav 客户端分离；为冒烟测试提供真实像素 |
+| `~/InternNav/scripts/smoke_test_fake_obs.py` | HTTP 冒烟：在 zy 上初始化 DualVLN agent，并用合成 RGB-D 帧或 `--npz` 真实捕获调用 `step` | 在**无**底盘运动时证明局域网 + Agent Service + checkpoint 加载 |
+| `~/InternNav/scripts/capture_realsense_frame.py` | ROS 订阅者（系统 Python），等待一帧 color + depth 并写入 `/tmp/internnav_obs.npz` | 将 ROS/`rclpy`（系统 Python 3.12）与 uv InternNav 客户端分离；为冒烟测试提供真实像素 |
 | `~/InternNav/scripts/lift2s_internnav_bridge.py` | 实时循环：订阅相机 → HTTP DualVLN → 打印动作；可选 `--enable-motion` 发布 `/cmd_vel` | Lift2S 的**闭环**导航粘合层；DualVLN 自身从不说 ROS |
 | `~/InternNav/internnav/utils/__init__.py`（懒加载 `AgentServer`） | 立即导出 `AgentClient`；仅在请求时加载 `AgentServer` | 让机器人导入薄 HTTP 客户端，而无需拉取 Habitat / `quaternion` / 完整服务端依赖 |
 
@@ -224,14 +224,14 @@ DualVLN **不会**输出像 “forward” 这样的英文词。它输出 **离�
 
 | 脚本 | 解释器 |
 |--------|-------------|
-| `smoke_test_fake_obs.py` | `conda activate internnav` |
+| `smoke_test_fake_obs.py` | `source ~/SocialNav/InternNav/.venv/bin/activate` |
 | `capture_realsense_frame.py` | `/usr/bin/python3` + 已 source 的 ROS |
 | `lift2s_internnav_bridge.py` | `/usr/bin/python3` + 已 source 的 ROS |
-| `scripts/eval/start_server.py` | **仅 Sim-06** 上的 `conda` |
+| `scripts/eval/start_server.py` | **仅 zy** 上的 `uv` 虚拟环境 |
 
 ### 4.2 各脚本的最小心智模型
 
-**冒烟测试** — “Sim-06 能否回答 `/agent/init` 与 `/agent/.../step`？”
+**冒烟测试** — “zy 能否回答 `/agent/init` 与 `/agent/.../step`？”
 
 **捕获** — “ROS 能否把 D405 的一对 RGB-D 送入 NumPy 文件？”
 
@@ -250,7 +250,7 @@ DualVLN **不会**输出像 “forward” 这样的英文词。它输出 **离�
 | `~/librealsense` | D405 的 SDK 源码 / 安装 |
 | RealSense ROS 工作空间（例如 `ARX5_ROBOT_1-main/realsense` 下） | 已构建的 `realsense2_camera` 封装 |
 | `~/lift2s-ws` | 底盘 / 全身栈；提供 `/cmd_vel` 消费者（`quick_start.sh`） |
-| `~/InternNav` | 客户端脚本 +（在 Sim-06 上）DualVLN 服务端 + 权重 |
+| `~/InternNav` | 客户端脚本 +（在 zy 上）DualVLN 服务端 + 权重 |
 
 `git status` 显示 `lift2s-ws/src` 下**子模块**脏污与 DualVLN 推理无关；只表示这些嵌套仓库检出了新提交。InternNav↔相机通信不经过那些子模块提交。
 
@@ -280,6 +280,6 @@ DualVLN **不会**输出像 “forward” 这样的英文词。它输出 **离�
 |------|--------|
 | 主题 | ARX Lift2S 上 InternNav DualVLN 的概念架构 |
 | 感知 | Intel RealSense D405 + ROS 2 Jazzy + Zenoh |
-| 推理 | Sim-06 上的远程 Agent Service（`:8087`） |
+| 推理 | zy 上的远程 Agent Service（`:8087`） |
 | 控制 | 自定义 bridge → `/cmd_vel` |
 | 上游 | [InternRobotics/InternNav](https://github.com/InternRobotics/InternNav) |

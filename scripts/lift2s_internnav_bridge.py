@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Lift2S ↔ InternNav DualVLN bridge (camera → HTTP agent → /cmd_vel).
 
-Run with system Python + ROS (NOT conda), while:
-  - Sim-06: start_server.py on :8087
+Run with system Python + ROS (NOT the InternNav uv venv), while:
+  - zy: start_server.py on :8087
   - Robot: rmw_zenohd + RealSense + lift2s quick_start
 
 Default is DRY-RUN (prints actions only). Motion requires --enable-motion.

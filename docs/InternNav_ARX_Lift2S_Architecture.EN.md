@@ -8,7 +8,7 @@
 - Upstream: [InternRobotics/InternNav](https://github.com/InternRobotics/InternNav)
 - Papers: [InternVLA-N1 technical report](https://internrobotics.github.io/internvla-n1.github.io/), [DualVLN (arXiv:2512.08186)](https://arxiv.org/abs/2512.08186)
 
-**Validated layout.** Lift2S onboard PC (`arx`) runs camera + chassis ROS; DualVLN inference runs on **Sim-06** over HTTP `:8087`.
+**Validated layout.** Lift2S onboard PC (`arx`) runs camera + chassis ROS; DualVLN inference runs on **zy** over HTTP `:8087`.
 
 ---
 
@@ -78,10 +78,10 @@ On this Lift2S setup:
 **Important clarification for InternNav on Lift2S:**
 
 - Zenoh is used for **on-robot** ROS traffic (camera ↔ bridge ↔ chassis).
-- DualVLN on Sim-06 does **not** join this Zenoh graph.
-- Robot ↔ Sim-06 uses **HTTP**, not ROS.
+- DualVLN on zy does **not** join this Zenoh graph.
+- Robot ↔ zy uses **HTTP**, not ROS.
 
-So: “D405 communicates through ROS 2 Zenoh” is correct **inside the robot**. It is **not** how DualVLN on Sim-06 receives images.
+So: “D405 communicates through ROS 2 Zenoh” is correct **inside the robot**. It is **not** how DualVLN on zy receives images.
 
 ### 1.4 How the robot “understands” / receives the RGB topic
 
@@ -144,7 +144,7 @@ Your three README entries:
    Dual system where System 1 is **NavDP\*** (jointly tuned with System 2). Observation often **RGB-D**.
 
 3. **InternVLA-N1 (Dual System) DualVLN** ← **what we run on Lift2S**  
-   Dual-system DualVLN variant; strong **RGB** VLN performance on benchmarks. This is the checkpoint served on Sim-06.
+   Dual-system DualVLN variant; strong **RGB** VLN performance on benchmarks. This is the checkpoint served on zy.
 
 **On Lift2S we use DualVLN only** (remote Agent Service). We are not running all three stacks at once.
 
@@ -168,7 +168,7 @@ Official real-world demos often wrap Unitree Go2. Lift2S needs a **custom wrappe
 | Question | Answer |
 |----------|--------|
 | Does upstream DualVLN subscribe to `/camera_head/color/image_raw`? | **No.** |
-| Does DualVLN on Sim-06 see ROS topics? | **No.** It only sees HTTP request bodies. |
+| Does DualVLN on zy see ROS topics? | **No.** It only sees HTTP request bodies. |
 | How do RGB frames reach DualVLN? | Robot bridge **subscribes** in ROS → packs NumPy → **HTTP** `POST /agent/.../step`. |
 | Does InternNav / DualVLN publish `/cmd_vel`? | **No.** |
 | Who publishes `/cmd_vel`? | Our **`lift2s_internnav_bridge.py`** (when `--enable-motion`), mapping discrete actions to `geometry_msgs/Twist`. |
@@ -180,7 +180,7 @@ D405 USB
   → realsense2_camera (pub RGB/Depth)
   → Zenoh ROS graph (robot-local)
   → lift2s_internnav_bridge (sub Image)
-  → HTTP JSON (pickle+base64 observation) → Sim-06 Agent Server
+  → HTTP JSON (pickle+base64 observation) → zy Agent Server
   → DualVLN GPU inference
   → HTTP JSON action codes
   → bridge maps 0/1/2/3 → Twist
@@ -215,8 +215,8 @@ Upstream InternNav does **not** ship an ARX Lift2S driver. These files were adde
 
 | Path | Purpose | Why needed |
 |------|---------|------------|
-| `~/InternNav/scripts/smoke_test_fake_obs.py` | HTTP smoke test: init DualVLN agent on Sim-06 and call `step` with a synthetic RGB-D frame, or with `--npz` from a real capture | Proves LAN + Agent Service + checkpoint load **without** chassis motion |
-| `~/InternNav/scripts/capture_realsense_frame.py` | ROS subscriber (system Python) that waits for one color + depth message and writes `/tmp/internnav_obs.npz` | Separates ROS/`rclpy` (system Python 3.12) from conda InternNav client; supplies real pixels for smoke tests |
+| `~/InternNav/scripts/smoke_test_fake_obs.py` | HTTP smoke test: init DualVLN agent on zy and call `step` with a synthetic RGB-D frame, or with `--npz` from a real capture | Proves LAN + Agent Service + checkpoint load **without** chassis motion |
+| `~/InternNav/scripts/capture_realsense_frame.py` | ROS subscriber (system Python) that waits for one color + depth message and writes `/tmp/internnav_obs.npz` | Separates ROS/`rclpy` (system Python 3.12) from uv InternNav client; supplies real pixels for smoke tests |
 | `~/InternNav/scripts/lift2s_internnav_bridge.py` | Live loop: subscribe camera → HTTP DualVLN → print actions; optional `--enable-motion` publishes `/cmd_vel` | **Closed-loop** navigation glue for Lift2S; DualVLN never speaks ROS itself |
 | `~/InternNav/internnav/utils/__init__.py` (lazy `AgentServer`) | Export `AgentClient` immediately; load `AgentServer` only when requested | Lets the robot import the thin HTTP client without pulling Habitat / `quaternion` / full server deps |
 
@@ -224,14 +224,14 @@ Upstream InternNav does **not** ship an ARX Lift2S driver. These files were adde
 
 | Script | Interpreter |
 |--------|-------------|
-| `smoke_test_fake_obs.py` | `conda activate internnav` |
+| `smoke_test_fake_obs.py` | `source ~/SocialNav/InternNav/.venv/bin/activate` |
 | `capture_realsense_frame.py` | `/usr/bin/python3` + sourced ROS |
 | `lift2s_internnav_bridge.py` | `/usr/bin/python3` + sourced ROS |
-| `scripts/eval/start_server.py` | `conda` on **Sim-06 only** |
+| `scripts/eval/start_server.py` | `uv` venv on **zy** only |
 
 ### 4.2 Minimal mental model of each script
 
-**Smoke test** — “Can Sim-06 answer `/agent/init` and `/agent/.../step`?”
+**Smoke test** — “Can zy answer `/agent/init` and `/agent/.../step`?”
 
 **Capture** — “Can ROS deliver one RGB-D pair from D405 into a NumPy file?”
 
@@ -250,7 +250,7 @@ From the robot host layout (`~/lift2s-ws`, `~/librealsense`, `~/InternNav`):
 | `~/librealsense` | SDK sources / install for D405 |
 | RealSense ROS workspace (e.g. under `ARX5_ROBOT_1-main/realsense`) | Built `realsense2_camera` wrapper |
 | `~/lift2s-ws` | Chassis / whole-body stack; provides `/cmd_vel` consumer (`quick_start.sh`) |
-| `~/InternNav` | Client scripts + (on Sim-06) DualVLN server + weights |
+| `~/InternNav` | Client scripts + (on zy) DualVLN server + weights |
 
 `git status` showing dirty **submodules** under `lift2s-ws/src` is unrelated to DualVLN inference; it only means those nested repos have new commits checked out. InternNav↔camera communication does not go through those submodule commits.
 
@@ -280,6 +280,6 @@ From the robot host layout (`~/lift2s-ws`, `~/librealsense`, `~/InternNav`):
 |------|--------|
 | Topic | Conceptual architecture of InternNav DualVLN on ARX Lift2S |
 | Sensing | Intel RealSense D405 + ROS 2 Jazzy + Zenoh |
-| Inference | Remote Agent Service on Sim-06 (`:8087`) |
+| Inference | Remote Agent Service on zy (`:8087`) |
 | Control | Custom bridge → `/cmd_vel` |
 | Upstream | [InternRobotics/InternNav](https://github.com/InternRobotics/InternNav) |

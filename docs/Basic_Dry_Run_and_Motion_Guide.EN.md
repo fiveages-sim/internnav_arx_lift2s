@@ -1,16 +1,16 @@
-# Basic Dry-Run and Motion Guide — Sim-06 ↔ ARX Lift2S
+# Basic Dry-Run and Motion Guide — zy ↔ ARX Lift2S
 
-Step-by-step command script from **linking Sim-06 to Lift2S** through **dry-run** and **motion** with InternNav DualVLN.
+Step-by-step command script from **linking zy to Lift2S** through **dry-run** and **motion** with InternNav DualVLN.
 
 **Prerequisites:** Installation complete ([Installation_Guide.md](./Installation_Guide.md)).  
 **Architecture:** [InternNav_ARX_Lift2S_Architecture.md](./InternNav_ARX_Lift2S_Architecture.md).
 
 | Machine | Example IP | SSH / login |
 |---------|------------|-------------|
-| **Sim-06** (model server) | `192.168.110.35` | `fiveages@Sim-06` |
+| **zy** (model server) | `192.168.110.35` | `zy GPU host` |
 | **Lift2S** (robot) | `192.168.111.209` | `arx@192.168.111.209` |
 
-Replace IPs if your LAN differs. Confirm Sim-06: `ip -4 addr show enp4s0`.
+Replace IPs if your LAN differs. Confirm zy: `ip -4 addr show enp4s0`.
 
 **Camera:** Intel RealSense D405 (example serial `323622271380`).  
 **Bridge script:** `~/internnav_arx_lift2s/scripts/lift2s_internnav_bridge.py`
@@ -20,7 +20,7 @@ Replace IPs if your LAN differs. Confirm Sim-06: `ip -4 addr show enp4s0`.
 ## Startup order (always follow this)
 
 ```text
-Sim-06 model server  →  Lift2S Zenoh  →  RealSense  →  [optional rqt]  →  dry-run
+zy model server  →  Lift2S Zenoh  →  RealSense  →  [optional rqt]  →  dry-run
                                                               ↓
                                                     quick_start (chassis)  →  motion
 ```
@@ -42,14 +42,14 @@ Before dry-run or motion, confirm the goal object is visible in `rqt` (Section 4
 
 ---
 
-## 1. Sim-06 — DualVLN model server
+## 1. zy — DualVLN model server
 
-**Device:** Sim-06  
-**Terminal:** `Sim-06-A` (leave open)
+**Device:** zy  
+**Terminal:** `zy-A` (leave open)
 
 ```bash
-conda activate internnav
-cd ~/InternNav
+source ~/SocialNav/InternNav/.venv/bin/activate
+cd ~/SocialNav/InternNav
 python scripts/eval/start_server.py --host 0.0.0.0 --port 8087
 ```
 
@@ -64,7 +64,7 @@ python scripts/eval/start_server.py --host 0.0.0.0 --port 8087
 INFO: Uvicorn running on http://0.0.0.0:8087
 ```
 
-**Health check** (Sim-06 or any LAN machine):
+**Health check** (zy or any LAN machine):
 
 ```bash
 curl -sS --noproxy '*' -w "\nhttp_code=%{http_code}\n" --connect-timeout 3 \
@@ -166,7 +166,7 @@ Then run the `rqt` commands above.
 
 **Device:** Lift2S  
 **Terminal:** `Lift2S-T4`  
-**Requires:** Sim-06-A, Lift2S-T1, Lift2S-T2 running. **Does not** require `quick_start.sh`.
+**Requires:** zy-A, Lift2S-T1, Lift2S-T2 running. **Does not** require `quick_start.sh`.
 
 **Why:** Confirms HTTP link, camera RGB-D, and model actions **before** moving the base.
 
@@ -192,7 +192,7 @@ Agent init OK: internvla_n1
 action raw=... → 1 (FORWARD)
 ```
 
-**Expect on Sim-06-A:** `POST /agent/init` (201) and `POST /agent/internvla_n1/step` (200).
+**Expect on zy-A:** `POST /agent/init` (201) and `POST /agent/internvla_n1/step` (200).
 
 **Notes**
 
@@ -243,7 +243,7 @@ Keep arms **HOLD** so WBC does not fight `/cmd_vel`.
 
 **Device:** Lift2S  
 **Terminal:** `Lift2S-T4` (reuse bridge terminal)  
-**Requires:** Sim-06-A, Lift2S-T1, T2, **T5 (`quick_start`)**
+**Requires:** zy-A, Lift2S-T1, T2, **T5 (`quick_start`)**
 
 **Why:** Closed-loop navigation — DualVLN actions drive the base.
 
@@ -318,7 +318,7 @@ Or Ctrl+C the bridge (it also sends stop on exit).
 | 4 | Lift2S-T3 | Ctrl+C `rqt` (if open) |
 | 5 | Lift2S-T2 | Ctrl+C RealSense |
 | 6 | Lift2S-T1 | Ctrl+C Zenoh |
-| 7 | Sim-06-A | Ctrl+C model server |
+| 7 | zy-A | Ctrl+C model server |
 
 ---
 
@@ -326,7 +326,7 @@ Or Ctrl+C the bridge (it also sends stop on exit).
 
 | ID | Device | Service |
 |----|--------|---------|
-| Sim-06-A | Sim-06 | `start_server.py --host 0.0.0.0 --port 8087` |
+| zy-A | zy | `start_server.py --host 0.0.0.0 --port 8087` |
 | Lift2S-T1 | Lift2S | `rmw_zenohd` |
 | Lift2S-T2 | Lift2S | RealSense launch |
 | Lift2S-T3 | Lift2S | `rqt_image_view` (optional) |
@@ -339,9 +339,9 @@ Or Ctrl+C the bridge (it also sends stop on exit).
 
 | Symptom | Check |
 |---------|--------|
-| `Connection refused` to `:8087` | Sim-06-A running? Not bound to `:8023`? |
+| `Connection refused` to `:8087` | zy-A running? Not bound to `:8023`? |
 | `No RGB/depth` | T1 Zenoh + T2 RealSense running? |
-| `Agent init` hangs | Wait 1–2 min for first model load on Sim-06 |
+| `Agent init` hangs | Wait 1–2 min for first model load on zy |
 | Base does not move | T5 `quick_start` running? Used `--enable-motion`? |
 | Only spins, never reaches goal | Raise AC_ONE lift; place goal in camera view; increase `--steps` |
 | Long `STOP` at end | Normal near goal — model ends episode |

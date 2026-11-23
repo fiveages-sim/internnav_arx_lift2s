@@ -1,19 +1,19 @@
 # 快速开始 — 在 ARX Lift2S 上运行 InternNav DualVLN
 
-假定安装已完成（Sim-06 上的 InternNav + DualVLN，机器人上的 ROS / RealSense / `lift2s-ws`）。  
-若不同，请将 `192.168.110.35` 替换为你的 Sim-06 局域网 IP。相机序列号示例：`323622271380`。
+假定安装已完成（zy 上的 InternNav + DualVLN，机器人上的 ROS / RealSense / `lift2s-ws`）。  
+若不同，请将 `192.168.110.35` 替换为你的 zy 局域网 IP。相机序列号示例：`323622271380`。
 
-**启动顺序：** Sim-06 服务 → Zenoh → RealSense → 底盘（`quick_start.sh`）→ bridge / `rqt`。
+**启动顺序：** zy 服务 → Zenoh → RealSense → 底盘（`quick_start.sh`）→ bridge / `rqt`。
 
 使用 `--enable-motion` 前请准备好急停。
 
 ---
 
-## Sim-06 — 模型服务
+## zy — 模型服务
 
 ```bash
-conda activate internnav
-cd ~/InternNav
+source ~/SocialNav/InternNav/.venv/bin/activate
+cd ~/SocialNav/InternNav
 python scripts/eval/start_server.py --host 0.0.0.0 --port 8087
 ```
 
@@ -140,6 +140,15 @@ source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 
 若脚本位于 `~/InternNav/scripts/`，请改用该路径。
 
+**zy 上的 checkpoint**（bridge/smoke 传 `--model-path`；切换时重启 `start_server.py`）：
+
+| 模型 | `--model-path` |
+|------|----------------|
+| 基座 DualVLN | `checkpoints/InternVLA-N1-DualVLN` |
+| SocialGen 微调 | `checkpoints/InternVLA-N1-DualVLN-SocialGen-10k-3ep-20261115` |
+
+SocialGen 目录须含 `chat_template.json`（缺失则从基座复制）。zy 上 DualVLN 使用 **uv** 虚拟环境：`source ~/SocialNav/InternNav/.venv/bin/activate`。
+
 ---
 
 ## 可选一次性冒烟（无需底盘）
@@ -150,10 +159,11 @@ source ~/ARX5_ROBOT_1-main/realsense/install/setup.bash
 /usr/bin/python3 ~/internnav_arx_lift2s/scripts/capture_realsense_frame.py \
   --out /tmp/internnav_obs.npz
 
-conda activate internnav
-cd ~/InternNav
+source ~/SocialNav/InternNav/.venv/bin/activate
+cd ~/SocialNav/InternNav
 python ~/internnav_arx_lift2s/scripts/smoke_test_fake_obs.py \
   --host 192.168.110.35 \
+  --model-path checkpoints/InternVLA-N1-DualVLN \
   --npz /tmp/internnav_obs.npz \
   --instruction "go forward a little bit then stop"
 ```
@@ -164,4 +174,4 @@ python ~/internnav_arx_lift2s/scripts/smoke_test_fake_obs.py \
 
 - Bridge / `rqt`：`Ctrl+C`
 - 停止底盘：`ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{}"`
-- 然后按需停止 RealSense、Zenoh、`quick_start` 启动项以及 Sim-06 服务
+- 然后按需停止 RealSense、Zenoh、`quick_start` 启动项以及 zy 服务

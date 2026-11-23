@@ -1,11 +1,11 @@
 # InternNav × Lift2S — command reference
 
-Example IPs (replace locally): Sim-06 `192.168.110.35`, robot `192.168.111.209`. Camera serial example: `323622271380` → `serial_no:=_323622271380`.
+Example IPs (replace locally): zy `192.168.110.35`, robot `192.168.111.209`. Camera serial example: `323622271380` → `serial_no:=_323622271380`.
 
-## Sim-06 — env and server
+## zy — env and server
 
 ```bash
-conda activate internnav
+source ~/SocialNav/InternNav/.venv/bin/activate
 cd ~/InternNav
 # Checkpoint: checkpoints/InternVLA-N1-DualVLN
 python scripts/eval/start_server.py --host 0.0.0.0 --port 8087
@@ -18,7 +18,7 @@ curl -sS --noproxy '*' -w "\nhttp_code=%{http_code}\n" --connect-timeout 3 \
   http://127.0.0.1:8087/openapi.json | head
 ```
 
-`flash_attn` must import on Sim-06. Habitat missing is OK for Agent Service only.
+`flash_attn` must import on zy. Habitat missing is OK for Agent Service only.
 
 ## Robot — Zenoh
 
@@ -55,7 +55,7 @@ ros2 run rqt_image_view rqt_image_view   # pick /camera_head/color/image_raw
 ## Robot — HTTP smoke
 
 ```bash
-conda activate internnav
+source ~/SocialNav/InternNav/.venv/bin/activate
 cd ~/InternNav
 export NO_PROXY="192.168.110.35,localhost,127.0.0.1"; export no_proxy="$NO_PROXY"
 unset http_proxy HTTP_PROXY
@@ -131,7 +131,7 @@ Motion:
 
 ## Install notes (high level)
 
-- Conda env `internnav`, Python 3.10, on robot and Sim-06.
-- Sim-06: Torch CUDA build matching GPU; DualVLN checkpoint; working `flash_attn`.
+- Conda env `internnav`, Python 3.10, on robot and zy.
+- zy: Torch CUDA build matching GPU; DualVLN checkpoint; working `flash_attn`.
 - Robot: thin client deps; do not host DualVLN.
 - Proxy only for clone/pip/HF; bypass for LAN Agent Service.
